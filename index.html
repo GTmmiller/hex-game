@@ -1,0 +1,104 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>The HTML5 Herald</title>
+  <meta name="description" content="The HTML5 Herald">
+  <meta name="author" content="SitePoint">
+
+  <link rel="stylesheet" href="css/styles.css?v=1.0">
+
+</head>
+
+<body>
+  <script src="js/fabric.js"></script>
+  <canvas id="test" width="900" height="900"></canvas>
+  <script>
+    let canvas = new fabric.Canvas('test')
+    console.log(canvas.getWidth())
+    console.log(canvas.getHeight())
+
+    let hexagonPoints = [
+      { x: 50, y: 25 },
+      { x: 100, y: 0 },
+      { x: 150, y: 25 },
+      { x: 150, y: 75 },
+      { x: 100, y: 100 },
+      { x: 50, y: 75},
+      { x: 50, y: 25}
+    ]
+
+    let createHexagon = function(q, r, scale) {
+      const left = 100 + (100 * q) + (r * 50)
+      const top = 100 + (75 * r)
+      let poly = new fabric.Polyline(hexagonPoints, {
+        stroke: 'black',
+        fill: 'white',
+        left: left * scale,
+        top: top * scale,
+        originX: 'center',
+        originY: 'center',
+        scaleX: .5,
+        scaleY: .5,
+      })
+      poly.on('mousedown', function(e) {
+        e.target.set({fill: 'red'})
+      })
+
+      return poly
+    } 
+
+    
+    // q=0, r=0
+    let polyCenter = new fabric.Polyline(hexagonPoints, {
+      stroke: 'black',
+      fill: 'white',
+      left: canvas.getWidth() / 2,
+      top: canvas.getHeight() / 2,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    // q=1, r=0
+    let polyRight = new fabric.Polyline(hexagonPoints, {
+      stroke: 'black',
+      fill: 'white',
+      left: canvas.getWidth() / 2 + 100,
+      top: canvas.getHeight() / 2,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    // q=1, r=-1
+    let polyTopRight = new fabric.Polyline(hexagonPoints, {
+      stroke: 'black',
+      fill: 'white',
+      left: canvas.getWidth() / 2 + 50,
+      top: canvas.getHeight() / 2 - 75,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    // q=0 r=1
+    let polyBottomRight = new fabric.Polyline(hexagonPoints, {
+      stroke: 'black',
+      fill: 'white',
+      left: canvas.getWidth() / 2 + 50,
+      top: canvas.getHeight() / 2 + 75,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    // createHexagon(0,0), createHexagon(0, 1), createHexagon(1,0), 
+    for (let i = 0; i < 11; i++) {
+      for(let j = 0; j < 11; j++) {
+        canvas.add(createHexagon(i, j, 0.5))
+      }
+    }
+    // canvas.add(polyCenter, polyRight, polyTopRight, polyBottomRight)
+    // canvas.add(createHexagon(0,0, 0.5), createHexagon(0, 1, 0.5), createHexagon (1, 0, 0.5))
+  </script>
+</body>
+</html>
