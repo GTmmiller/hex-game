@@ -10,3 +10,14 @@ canvas {
     justify-content: center;
     align-content: center;
 }
+
+.control-box {
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    flex-direction: column;
+}
+
+.ui-box {
+    align-self: center;
+}

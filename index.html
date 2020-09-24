@@ -14,6 +14,17 @@
 
 <body>
   <script src="js/fabric.js"></script>
+  <div class='control-box'>
+    <div class="ui-box"> 
+      <p>Current player: player <span id='playerNumber'></span></p>
+    </div> 
+    <div class='ui-box'>
+      <p>Color: <span id='playerColor'></span></p>
+    </div>
+      <div class='ui-box'>
+        <p>turn <span id='turnNumber'></span></p>
+      </div>
+  </div>
   <div id='canvas-box'>
     <canvas id="test" width="900" height="900">This browser does not support canvas</canvas>
   </div>
@@ -23,18 +34,125 @@
     console.log(canvas.getWidth())
     console.log(canvas.getHeight())
 
-    // gamestate should be a pojo => class object
-    let gamestate = {
-      turn: 0,
-      player: 1,
-      colors: { 
-        1: 'red',
-        2: 'blue'
-      },
-      // p by q
-      usedTiles: {
+    // gamestate should be a pojo => class object so it's easy to see what's 
+    // valid and what's not
+
+    class GameState {
+      constructor() {
+        // The default state for the gamestate
+        this.turn = 1
+        this.currentPlayer = 1
+        this.totalPlayers = 2
+        this.colorMap = {
+          1: 'red',
+          2: 'blue'
+        }
+        this.boardSize = 11
+        this.gameLog = []
+        
+        // create the gameboard with ownership state
+        // start with zeros to show no ownership
+        this.gameBoard = []
+        for (let i = 0; i < this.boardSize; i++) {
+          this.gameBoard.push([])
+          for (let j = 0; j < this.boardSize; j++) {
+            this.gameBoard[i].push(0)
+          }
+        }
+
+        this.updateIdMap = {}
+      }
+
+      get currentColor() {
+        return this.colorMap[this.currentPlayer]
+      }
+
+      registerUpdate(id, propertyName) {
+        // perform the update and add the update to the map
+        document.getElementById(id).textContent = this[propertyName]
+        this.updateIdMap[id] = propertyName
+      }
+
+      updateAll() {
+        for (const [id, property] of Object.entries(this.updateIdMap)) {
+          document.getElementById(id).textContent = this[property]
+        }
+      }
+
+      takeTurn(x, y) {
+        // Log it
+        this.gameLog.push(`turn ${this.turn}: player ${this.currentPlayer} selects tile at (${x}, ${y})`)
+        // Do it
+        this.gameBoard[x][y] = this.currentPlayer
+        
+        // rotate to the next player, increment turn
+        this.currentPlayer = this.currentPlayer % this.totalPlayers + 1
+        this.turn += 1
+
+        // update all the hooks
+        this.updateAll()
+      }
+
+      checkForVictory() {
+        // Check for blue victory
+        let longestPathBlue = []
+        for (let i = 0; i < this.gameBoard.length; i++) {
+          longestPathBlue.push([])
+          for (let j = 0; j < this.gameBoard.length; j++) {
+            longestPathBlue[i].push(0)
+          }
+        }
+
+        // start at 0,0 and populate the longest path matrix
+        // create longest path
+        for (let i = 0; i < longestPathBlue.length; i++) {
+          for(let j = 0; j < longestPathBlue[i].length; j++) {
+            // if gameboard[i][j] is not blue, go to next tile
+            if (this.gameBoard[i][j] !== 2) {
+              continue
+            }
+            
+            // find the max of the previous tiles, so 
+            // top left (i - 1, j)
+            // left (i, j - 1)
+            // top Right (i - 1, j + 1)
+            let topLeft = 0
+            let left = 0
+            let topRight = 0
+
+            // topLeft valid
+            if (i - 1 >= 0) {
+              topLeft = longestPathBlue[i - 1][j]
+            } 
+
+            // left valid
+            if(j - 1 >= 0) {
+              left = longestPathBlue[i][j - 1]
+            }
+            
+            // topRight valid
+            if (i - 1 >= 0 && j + 1 < 11) {
+              topRight = longestPathBlue[i - 1][j + 1]
+            }
+            
+            
+
+            let thisPathLength = Math.max(topLeft, left, topRight) + 1
+            longestPathBlue[i][j] = thisPathLength
+          }
+        }
+        console.log(longestPathBlue) 
+      }
+
+      tileIsOccupied(x, y) {
+        return this.gameBoard[x][y] !== 0
       }
     }
+
+    let gamestate = new GameState()
+    gamestate.registerUpdate('playerNumber', 'currentPlayer')
+    gamestate.registerUpdate('playerColor', 'currentColor')
+    gamestate.registerUpdate('turnNumber', 'turn')
 
     const Hexagon = fabric.util.createClass(fabric.Polygon, {
       initialize: function (options) {
@@ -56,10 +174,43 @@
       }
     })
 
-    const HexTile = fabric.util.createClass(Hexagon, {
-      initialize: function(options, gamestate) {
+    // // Hextiles are a group that have a hexagon base
+    // const HexTile = fabric.util.createClass(Hexagon, {
+    //   initialize: function(options, gamestate, boardX, boardY) {
+    //     this.gamestate = gamestate
+    //     this.boardX = boardX
+    //     this.boardY = boardY
+    //     this.callSuper('initialize', options)
+
+    //   }
+    // })
+
+    const HexTile = fabric.util.createClass(fabric.Group, {
+      initialize: function(options, gamestate, boardX, boardY, debug) {
+        // Might have to separate top and left out
         this.gamestate = gamestate
-        this.callSuper('initialize', options)
+        this.boardX = boardX
+        this.boardY = boardY
+
+        let hexagonOptions = {}
+        Object.assign(hexagonOptions, options)
+        hexagonOptions['top'] = 0
+        hexagonOptions['left'] = 0
+
+        this.hexagon = new Hexagon(hexagonOptions)
+
+        let objects = []
+        objects.push(this.hexagon)
+
+        if (debug) {
+          objects.push(new fabric.Text(`(${this.boardX}, ${this.boardY})`, {
+            fontSize: 12,
+            top: 10,
+            left: 10
+          }))
+        }
+
+        this.callSuper('initialize', objects, options)
       }
     })
 
@@ -67,18 +218,10 @@
       hexTile.on('mousedown', function(e) {
         // Make sure that the tile isn't colored yet
         let tile = e.target
-        if (!Object.values(this.gamestate.colors).includes(tile.get('fill'))) {
-          let color = this.gamestate.colors[this.gamestate.player]
-        
-          if (color === undefined) {
-            throw Error(`Incorrect player taking turn: '${this.gamestate.player}'`)
-          }
-          tile.set({fill: color})
-          if (this.gamestate.player === 1) {
-            this.gamestate.player = 2
-          } else {
-            this.gamestate.player = 1
-          }
+        let hexagon = e.target.hexagon
+        if (!this.gamestate.tileIsOccupied(tile.boardX, tile.boardY)) {
+          hexagon.set({'fill': this.gamestate.currentColor})
+          this.gamestate.takeTurn(tile.boardX, tile.boardY)
         }
       })
     }
@@ -99,18 +242,32 @@
           left: leftPush + j * refHexagon.width, size: 30, 
           stroke: 'black', 
           fill: 'white' 
-        }, gamestate)
+        }, gamestate, j, i, true)
         hexTileEvents(newHex)
         hexGrid[i].push(newHex)
+        
         canvas.add(newHex)
       }
     }
 
     // working on board lines
-    let rect = new fabric.Rect({top: 75, left: 50, width: 30, height: 500, angle: -90, fill: 'red'})
-    let line = new fabric.Line([50 - refHexagon.width, 50, 50, 500], {stroke: 'black'})
-    canvas.add(rect)
-    rect.sendToBack()
+    let topRect = new fabric.Rect({top: 75, left: 50, width: 30, height: refHexagon.width * 11, angle: -90, fill: 'red'})
+    let diagRect = new fabric.Rect({top: 77, left: 30, width: 30, height: refHexagon.width * 11, angle: -30, fill: 'blue'})
+    const botLeft = hexGrid[10][0].get('left') 
+    const botTop = hexGrid[10][0].get('top')
+    let botRect = new fabric.Rect({top: botTop + refHexagon.height + 13, left: botLeft, width: 30, height: refHexagon.width * 11, angle: -90, fill: 'red'})
+    const topLeft = hexGrid[0][10].get('left')
+    let rightDiagRect = new fabric.Rect({top: 52, left: topLeft + refHexagon.width / 2, width: 30, height: refHexagon.width * 11, angle: -30, fill: 'blue'})
+
+
+    canvas.add(topRect)
+    canvas.add(diagRect)
+    canvas.add(botRect)
+    canvas.add(rightDiagRect)
+    diagRect.sendToBack()
+    topRect.sendToBack()
+    botRect.sendToBack()
+    rightDiagRect.sendToBack()
 
 
   </script>
